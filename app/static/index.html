@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moonlight Pi Steuerung</title>
+    <!-- Tailwind CSS CDN für einfache Styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            /* Leichter grauer Hintergrund */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            background-color: #ffffff;
+            padding: 32px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 600px;
+        }
+
+        h1 {
+            color: #1f2937;
+            /* Dunkler Text */
+            font-size: 2.25rem;
+            /* Helle Überschrift */
+            font-weight: 700;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        h2 {
+            color: #374151;
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-top: 24px;
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #4b5563;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            box-sizing: border-box;
+            /* Padding in der Breite berücksichtigen */
+        }
+
+        button {
+            padding: 12px 20px;
+            background-color: #3b82f6;
+            /* Blauer Button */
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background-color 0.2s ease-in-out;
+            margin-right: 12px;
+            margin-bottom: 12px;
+        }
+
+        button:hover {
+            background-color: #2563eb;
+            /* Dunklerer Blauton beim Hover */
+        }
+
+        .btn-red {
+            background-color: #ef4444;
+            /* Roter Button für Stop */
+        }
+
+        .btn-red:hover {
+            background-color: #dc2626;
+        }
+
+        .btn-delete {
+            background-color: #ef4444;
+            /* Roter Button für Löschen */
+        }
+
+        .btn-delete:hover {
+            background-color: #dc2626;
+        }
+
+        .info-text {
+            color: #4b5563;
+            margin-top: 8px;
+            font-size: 0.9rem;
+        }
+
+        .message-box {
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-weight: 500;
+        }
+
+        .message-success {
+            background-color: #d1fae5;
+            /* Grüner Hintergrund für Erfolg */
+            color: #065f46;
+            /* Grüner Text */
+            border: 1px solid #34d399;
+        }
+
+        .message-error {
+            background-color: #fee2e2;
+            /* Roter Hintergrund für Fehler */
+            color: #991b1b;
+            /* Roter Text */
+            border: 1px solid #ef4444;
+        }
+
+        .bluetooth-list {
+            margin-top: 16px;
+            background-color: #f9fafb;
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .bluetooth-device-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .bluetooth-device-item:last-child {
+            border-bottom: none;
+        }
+
+        .bluetooth-device-item span {
+            color: #374151;
+        }
+
+        .bluetooth-device-item button {
+            margin-right: 0;
+            padding: 8px 16px;
+            font-size: 0.875rem;
+            margin-bottom: 0;
+        }
+
+        .device-status {
+            font-size: 0.85rem;
+            color: #6b7280;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Moonlight Pi Steuerung</h1>
+
+        <div id="message" class="message-box hidden"></div>
+
+        <section>
+            <h2>Game Server IP</h2>
+            <label for="gameServerIpInput">IP-Adresse des Game Servers:</label>
+            <input type="text" id="gameServerIpInput" placeholder="z.B. 192.168.1.100"
+                class="focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            <button onclick="saveGameServerIp()">IP speichern</button>
+            <p class="info-text">Aktuelle IP: <span id="currentIpDisplay">Laden...</span></p>
+        </section>
+
+        <section>
+            <h2>Moonlight Stream</h2>
+            <button onclick="startMoonlightStream()">Stream starten (Standard: Steam)</button>
+            <button class="btn-red" onclick="stopMoonlightStream()">Stream beenden</button>
+            <p class="info-text">Startet den Moonlight-Stream zur aktuell gespeicherten IP-Adresse.</p>
+        </section>
+
+        <section>
+            <h2>Gepaarte Bluetooth Geräte</h2>
+            <button onclick="fetchPairedDevices()">Gekoppelte Geräte anzeigen</button>
+            <p class="info-text">Zeigt alle mit diesem Pi gekoppelten Bluetooth-Geräte an.</p>
+            <div id="pairedDevicesList" class="bluetooth-list">
+                <p>Noch keine gekoppelten Geräte geladen.</p>
+            </div>
+        </section>
+
+        <section>
+            <h2>Bluetooth Geräte suchen</h2>
+            <button onclick="scanBluetoothDevices()">Neue Geräte scannen</button>
+            <p class="info-text">Sucht nach verfügbaren Bluetooth-Geräten in der Nähe, um sie zu koppeln.</p>
+            <div id="bluetoothDevicesList" class="bluetooth-list">
+                <p>Noch keine Geräte gescannt.</p>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const messageDiv = document.getElementById('message');
+        const gameServerIpInput = document.getElementById('gameServerIpInput');
+        const currentIpDisplay = document.getElementById('currentIpDisplay');
+        const bluetoothDevicesList = document.getElementById('bluetoothDevicesList');
+        const pairedDevicesList = document.getElementById('pairedDevicesList');
+
+        // Funktion zur Anzeige von Nachrichten
+        function showMessage(msg, type = 'info') {
+            messageDiv.innerText = msg;
+            messageDiv.classList.remove('hidden', 'message-success', 'message-error');
+            if (type === 'success') {
+                messageDiv.classList.add('message-success');
+            } else if (type === 'error') {
+                messageDiv.classList.add('message-error');
+            }
+            // Nachricht nach 5 Sekunden ausblenden
+            setTimeout(() => {
+                messageDiv.classList.add('hidden');
+            }, 5000);
+        }
+
+        // Aktuelle IP vom Backend abrufen
+        async function fetchCurrentIp() {
+            try {
+                const response = await fetch('/api/get_ip');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                currentIpDisplay.innerText = data.ip || 'Nicht gesetzt';
+                gameServerIpInput.value = data.ip || '';
+                // showMessage('Aktuelle IP geladen.', 'success'); // Weniger Meldungen beim Start
+            } catch (error) {
+                console.error('Fehler beim Abrufen der IP:', error);
+                currentIpDisplay.innerText = 'Fehler beim Laden';
+                showMessage('Konnte IP nicht laden: ' + error.message, 'error');
+            }
+        }
+
+        // Game Server IP speichern
+        async function saveGameServerIp() {
+            const ip = gameServerIpInput.value.trim();
+            if (!ip) {
+                showMessage('Bitte geben Sie eine gültige IP-Adresse ein.', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/set_ip', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ip: ip })
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                if (data.status === 'success') {
+                    showMessage(data.message, 'success');
+                    fetchCurrentIp(); // Aktualisiere Anzeige nach Speichern
+                } else {
+                    showMessage(data.message, 'error');
+                }
+            } catch (error) {
+                showMessage('Fehler beim Speichern der IP: ' + error.message, 'error');
+            }
+        }
+
+        // Moonlight Stream starten
+        async function startMoonlightStream() {
+            const ip = currentIpDisplay.innerText;
+            if (ip === 'Nicht gesetzt' || ip === 'Fehler beim Laden') {
+                showMessage('Bitte zuerst eine Game Server IP speichern.', 'error');
+                return;
+            }
+            try {
+                const response = await fetch('/api/start_stream', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ app: 'Steam' }) // Oder 'Desktop', etc.
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                if (data.status === 'success') {
+                    showMessage(data.message, 'success');
+                } else {
+                    showMessage(data.message, 'error');
+                }
+            } catch (error) {
+                showMessage('Fehler beim Starten des Streams: ' + error.message, 'error');
+            }
+        }
+
+        // Moonlight Stream beenden
+        async function stopMoonlightStream() {
+            try {
+                const response = await fetch('/api/stop_stream', {
+                    method: 'POST'
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                if (data.status === 'success') {
+                    showMessage(data.message, 'success');
+                } else {
+                    showMessage(data.message, 'error');
+                }
+            } catch (error) {
+                showMessage('Fehler beim Beenden des Streams: ' + error.message, 'error');
+            }
+        }
+
+        // Bluetooth Geräte scannen (für neue Geräte)
+        async function scanBluetoothDevices() {
+            bluetoothDevicesList.innerHTML = '<p>Scanne nach Geräten...</p>';
+            showMessage('Starte Bluetooth-Scan, bitte warten...', 'info');
+            try {
+                const response = await fetch('/api/scan_bluetooth');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                if (data.status === 'success') {
+                    displayBluetoothDevices(data.devices);
+                    showMessage('Bluetooth-Scan erfolgreich. Gefundene Geräte:', 'success');
+                } else {
+                    showMessage(data.message, 'error');
+                    bluetoothDevicesList.innerHTML = `<p>${data.message}</p>`;
+                }
+            } catch (error) {
+                showMessage('Fehler beim Bluetooth-Scan: ' + error.message, 'error');
+                bluetoothDevicesList.innerHTML = `<p>Fehler beim Scannen: ${error.message}</p>`;
+            }
+        }
+
+        // Gefundene Bluetooth-Geräte anzeigen (nach Scan)
+        function displayBluetoothDevices(devices) {
+            bluetoothDevicesList.innerHTML = '';
+            if (devices.length === 0) {
+                bluetoothDevicesList.innerHTML = '<p>Keine Bluetooth-Geräte gefunden.</p>';
+                return;
+            }
+            devices.forEach(device => {
+                const div = document.createElement('div');
+                div.className = 'bluetooth-device-item';
+                div.innerHTML = `
+                    <span>${device.name || 'Unbekanntes Gerät'} (${device.address})</span>
+                    <button onclick="connectBluetoothDevice('${device.address}')">Verbinden</button>`;
+                bluetoothDevicesList.appendChild(div);
+            });
+        }
+
+        // Bluetooth Gerät verbinden
+        async function connectBluetoothDevice(address) {
+            showMessage(`Versuche Verbindung zu ${address}...`, 'info');
+            try {
+                const response = await fetch('/api/connect_bluetooth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ address: address })
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                if (data.status === 'success') {
+                    showMessage(data.message, 'success');
+                    fetchPairedDevices(); // Gekoppelte Geräte aktualisieren
+                } else {
+                    showMessage(data.message, 'error');
+                }
+            } catch (error) {
+                showMessage('Fehler beim Verbinden des Geräts: ' + error.message, 'error');
+            }
+        }
+
+        // Gekoppelte Bluetooth Geräte abrufen
+        async function fetchPairedDevices() {
+            pairedDevicesList.innerHTML = '<p>Lade gekoppelte Geräte...</p>';
+            try {
+                const response = await fetch('/api/get_paired_devices');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                if (data.status === 'success') {
+                    displayPairedDevices(data.devices);
+                    // showMessage('Gekoppelte Geräte geladen.', 'success'); // Weniger Meldungen beim Start
+                } else {
+                    showMessage(data.message, 'error');
+                    pairedDevicesList.innerHTML = `<p>${data.message}</p>`;
+                }
+            } catch (error) {
+                showMessage('Fehler beim Abrufen gekoppelter Geräte: ' + error.message, 'error');
+                pairedDevicesList.innerHTML = `<p>Fehler beim Laden gekoppelter Geräte: ${error.message}</p>`;
+            }
+        }
+
+        // Gekoppelte Bluetooth Geräte anzeigen
+        function displayPairedDevices(devices) {
+            pairedDevicesList.innerHTML = '';
+            if (devices.length === 0) {
+                pairedDevicesList.innerHTML = '<p>Keine gekoppelten Bluetooth-Geräte gefunden.</p>';
+                return;
+            }
+            devices.forEach(device => {
+                const div = document.createElement('div');
+                div.className = 'bluetooth-device-item';
+                div.innerHTML = `
+                    <span>${device.name || 'Unbekanntes Gerät'} (${device.address})</span>
+                    <span class="device-status">Status: ${device.status}</span>
+                    <button class="btn-delete" onclick="removePairedDevice('${device.address}')">Löschen</button>`;
+                pairedDevicesList.appendChild(div);
+            });
+        }
+
+        // Gekoppeltes Bluetooth Gerät entfernen
+        async function removePairedDevice(address) {
+            if (!confirm(`Soll Gerät ${address} wirklich entfernt werden?`)) { // Temporär, ersetzen durch Custom Modal
+                return;
+            }
+            showMessage(`Versuche Gerät ${address} zu entfernen...`, 'info');
+            try {
+                const response = await fetch('/api/remove_device', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ address: address })
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                if (data.status === 'success') {
+                    showMessage(data.message, 'success');
+                    fetchPairedDevices(); // Gekoppelte Geräte aktualisieren
+                } else {
+                    showMessage(data.message, 'error');
+                }
+            } catch (error) {
+                showMessage('Fehler beim Entfernen des Geräts: ' + error.message, 'error');
+            }
+        }
+
+
+        // Initial beim Laden der Seite die aktuelle IP und gekoppelte Geräte abrufen
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchCurrentIp();
+            fetchPairedDevices();
+        });
+    </script>
+</body>
+
+</html>
